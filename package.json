@@ -1,7 +1,7 @@
 {
   "name": "tport-cloud-mcp",
   "version": "0.1.0",
-  "description": "MCP server for tport.cloud: servers, managed PostgreSQL and free DNS from Claude, Cursor or any MCP client, with a scoped API key",
+  "description": "MCP server for tport.cloud: servers, managed databases and free DNS from Claude, Cursor or any MCP client, with a scoped API key",
   "type": "module",
   "main": "build/index.js",
   "bin": {
@@ -25,7 +25,7 @@
   "engines": {
     "node": ">=18.0.0"
   },
-  "keywords": ["mcp", "model-context-protocol", "tport.cloud", "vps", "postgresql", "dns", "cloud"],
+  "keywords": ["mcp", "model-context-protocol", "tport.cloud", "vps", "postgresql", "mariadb", "qdrant", "dns", "cloud"],
   "homepage": "https://tport.cloud",
   "repository": {
     "type": "git",

@@ -19,6 +19,7 @@ function answer(s: Seen): [number, unknown] {
   if (s.path === "/api/catalogue") {
     return [200, { plans: [{ id: "ct-1", kind: "root" }, { id: "shared-2", kind: "shared" }, { id: "pg-1", kind: "pg" }] }];
   }
+  if (s.path === "/api/data/catalogue") return [200, { regions: [], engines: [{ id: "pgsql" }, { id: "qdrant" }] }];
   if (s.auth !== `Bearer ${KEY}`) return [401, { detail: "Sign in first" }];
   if (s.path === "/api/billing") return [403, { detail: "This API token is missing the 'billing:read' scope" }];
   if (s.path === "/api/orders" && !s.body.plan) {
@@ -63,7 +64,8 @@ describe("tool list", () => {
     const { tools } = await client.listTools();
     const names = tools.map((t) => t.name);
     for (const n of ["list_plans", "list_servers", "get_server", "create_server", "resize_server", "power",
-      "delete_server", "dns_list_zones", "dns_add_record", "databases_list", "databases_create"]) {
+      "delete_server", "dns_list_zones", "dns_add_record", "databases_list", "databases_create", "data_catalogue",
+      "data_list", "data_get", "data_create", "data_set_allow", "data_resize", "data_delete"]) {
       expect(names).toContain(n);
     }
     expect(new Set(names).size).toBe(TOOLS.length);
@@ -92,6 +94,33 @@ describe("calls", () => {
   it("databases_create orders kind pg", async () => {
     await call("databases_create", { plan: "pg-1", region: "us", name: "db1", allow: ["203.0.113.7/32"] });
     expect(seen[0].body).toEqual({ kind: "pg", plan: "pg-1", region: "us", name: "db1", allow: ["203.0.113.7/32"] });
+  });
+
+  it("data_catalogue filters by engine", async () => {
+    const { text } = await call("data_catalogue", { engine: "qdrant" });
+    expect(JSON.parse(text).engines).toEqual([{ id: "qdrant" }]);
+    expect(seen[0].path).toBe("/api/data/catalogue");
+  });
+
+  it("data tools map one to one to the data service routes", async () => {
+    await call("data_list");
+    await call("data_get", { id: "db-4" });
+    await call("data_create", { engine: "pgsql", price_cents: 800, region: "eu", name: "vec1", addons: ["pgvector"] });
+    await call("data_set_allow", { id: "db-4", allow: [] });
+    await call("data_resize", { id: "db-4", price_cents: 1200 });
+    await call("data_delete", { id: "db-4", confirm: "vec1" });
+    expect(seen.map((s) => `${s.method} ${s.path}`)).toEqual([
+      "GET /api/data/services", "GET /api/data/services/db-4", "POST /api/data/services",
+      "PUT /api/data/services/db-4/allow", "POST /api/data/services/db-4/resize", "DELETE /api/data/services/db-4"]);
+    expect(seen.map((s) => s.body)).toEqual([
+      undefined, undefined, { engine: "pgsql", price_cents: 800, region: "eu", name: "vec1", addons: ["pgvector"] },
+      { allow: [] }, { price_cents: 1200 }, { confirm: "vec1" }]);
+  });
+
+  it("the tool that hands over the login once isn't marked read-only", async () => {
+    const { tools } = await client.listTools();
+    expect(tools.find((t) => t.name === "data_get")?.annotations?.readOnlyHint).toBeFalsy();
+    expect(tools.find((t) => t.name === "data_list")?.annotations?.readOnlyHint).toBe(true);
   });
 
   it("resize, power and delete hit the item routes", async () => {

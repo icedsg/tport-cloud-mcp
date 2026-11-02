@@ -1,6 +1,6 @@
 # tport-cloud-mcp
 
-MCP server for [tport.cloud](https://tport.cloud): order and manage servers, managed PostgreSQL and free DNS from
+MCP server for [tport.cloud](https://tport.cloud): order and manage servers, managed databases and free DNS from
 Claude, Cursor or any MCP client. It runs on your machine over stdio and calls the tport.cloud API with your API key.
 
 ## Set up
@@ -37,16 +37,20 @@ Claude Code: `claude mcp add tport-cloud -e TPORT_API_KEY=tpct_... -- npx -y tpo
 | `list_plans` | Plans, prices, regions, images, installs, availability | none |
 | `list_servers`, `get_server`, `get_order` | Your servers and shared accounts, one in detail, an order's progress | `servers:read` |
 | `create_server` | Order a root server or shared account (charged from the balance) | `servers:create` |
-| `resize_server` | Move up to a bigger plan of the same kind | `servers:resize` |
+| `resize_server` | Move to another plan of the same kind | `servers:resize` |
 | `power` | Start, stop, restart | `servers:power` |
 | `delete_server` | Delete (typed name to confirm; unused days credited) | `servers:delete` |
-| `databases_list`, `databases_get` | Managed PostgreSQL clusters | `databases:read` |
+| `data_catalogue` | Database engines, add-ons, prices, sizes per region, availability | none |
+| `data_list`, `data_get` | Your managed databases, one in detail (the login, once) | `databases:read` |
+| `data_create`, `data_set_allow`, `data_resize`, `data_delete` | Order, allow list, resize, delete | `databases:write` |
+| `databases_list`, `databases_get` | Primary + standby PostgreSQL clusters | `databases:read` |
 | `databases_create`, `databases_set_allow`, `databases_delete` | Order, allow list, delete | `databases:write` |
 | `dns_list_zones`, `dns_get_zone` | Zones and records on the free nameservers | `dns:read` |
 | `dns_add_zone`, `dns_delete_zone`, `dns_add_record`, `dns_delete_record` | Change zones and records | `dns:write` |
 | `get_billing` | Balance and ledger | `billing:read` |
 
-Deleting asks for the item's name in `confirm`, as the console does. Errors come back as the API's own message.
+A new database's login is shown once, by the first `data_get` after setup, so your assistant sees it and it can't be
+read again. Deleting asks for the item's name in `confirm`, as the console does. Errors come back as the API's own message.
 
 ## Develop
 

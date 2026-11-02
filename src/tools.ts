@@ -22,7 +22,9 @@ const READ = { readOnlyHint: true };
 const DESTROY = { destructiveHint: true };
 
 const SERVER_ID = str("Server id from list_servers: srv-<n> (root server) or sh-<n> (shared account)");
-const CLUSTER_ID = str("Database id from databases_list: pg-<n>");
+const CLUSTER_ID = str("Cluster id from databases_list: pg-<n>");
+const DATA_ID = str("Database id from data_list: db-<n>");
+const DATA_PRICE = int("Monthly price in cents from data_catalogue, without add-ons, e.g. 800");
 const REGION = str("Region id from list_plans, e.g. eu (Germany), us (US Central), uk, us-east, us-west, sg");
 
 // Only what was given goes in the body, so the API's own defaults apply to the rest.
@@ -34,7 +36,8 @@ export const TOOLS: Tool[] = [
   {
     name: "list_plans",
     description: "What can be ordered: plans with monthly price (cents), vCPU, RAM, disk; regions; images; installs " +
-      "(python, node, postgresql...); which plan is available in which region. No key needed.",
+      "(python, node, postgresql...); which plan is available in which region. Managed databases by engine are in " +
+      "data_catalogue. No key needed.",
     inputSchema: obj({ kind: str("Only plans of this kind: shared, root or pg") }),
     annotations: READ,
     run: async (api, a) => {
@@ -82,17 +85,18 @@ export const TOOLS: Tool[] = [
   },
   {
     name: "get_order",
-    description: "An order's progress (queued, creating, ready, failed) with its item id. Scope servers:read.",
+    description: "An order's progress (queued, creating, ready, failed) with its item id. Not for data_create, " +
+      "which has no order: use data_list. Scope servers:read.",
     inputSchema: obj({ order_id: int("Order id returned by create_server or databases_create") }, ["order_id"]),
     annotations: READ,
     run: (api, a) => api.get(`/api/orders/${id(a.order_id)}`),
   },
   {
     name: "resize_server",
-    description: "Move a server or shared account up to a bigger plan of the same kind. The difference for the days " +
-      "already paid is charged from the balance now; then the new price applies. Smaller plans are refused. " +
-      "Scope servers:resize.",
-    inputSchema: obj({ id: SERVER_ID, plan: str("The bigger plan id from list_plans") }, ["id", "plan"]),
+    description: "Move a server or shared account to another plan of the same kind. Bigger: the difference for the " +
+      "days already paid is charged from the balance now. Smaller: the unused difference goes back, and only when " +
+      "the data fits in 80% of the new disk. Then the new price applies. Scope servers:resize.",
+    inputSchema: obj({ id: SERVER_ID, plan: str("The new plan id from list_plans") }, ["id", "plan"]),
     run: (api, a) => api.post(`/api/servers/${id(a.id)}/resize`, { plan: a.plan }),
   },
   {
@@ -114,14 +118,15 @@ export const TOOLS: Tool[] = [
   },
   {
     name: "databases_list",
-    description: "Your managed PostgreSQL clusters with status, plan and region. Scope databases:read.",
+    description: "Your primary + standby PostgreSQL clusters with status, plan and region. Databases of every engine are in " +
+      "data_list. Scope databases:read.",
     inputSchema: obj({}),
     annotations: READ,
     run: (api) => api.get("/api/clusters"),
   },
   {
     name: "databases_get",
-    description: "One managed PostgreSQL cluster: status, connection details, pooler, standby, allow list. " +
+    description: "One PostgreSQL cluster: status, connection details, pooler, standby, allow list. " +
       "Scope databases:read.",
     inputSchema: obj({ id: CLUSTER_ID }, ["id"]),
     annotations: READ,
@@ -129,8 +134,8 @@ export const TOOLS: Tool[] = [
   },
   {
     name: "databases_create",
-    description: "Order a managed PostgreSQL cluster (plan kind pg from list_plans: single node or with standby). " +
-      "The first 30 days are charged from the balance. Scope databases:write.",
+    description: "Order a primary + standby PostgreSQL cluster (plan kind pg from list_plans). For one database of " +
+      "any engine use data_create. The first 30 days are charged from the balance. Scope databases:write.",
     inputSchema: obj({
       plan: str("pg plan id from list_plans"),
       region: REGION,
@@ -148,11 +153,78 @@ export const TOOLS: Tool[] = [
   },
   {
     name: "databases_delete",
-    description: "Delete a managed PostgreSQL cluster and its data; unused days go back to the balance. " +
+    description: "Delete a PostgreSQL cluster and its data; unused days go back to the balance. " +
       "Cannot be undone. Scope databases:write.",
     inputSchema: obj({ id: CLUSTER_ID, confirm: str("The cluster's name, typed to confirm") }, ["id", "confirm"]),
     annotations: DESTROY,
     run: (api, a) => api.request("DELETE", `/api/clusters/${id(a.id)}`, { body: { confirm: a.confirm } }),
+  },
+  {
+    name: "data_catalogue",
+    description: "Managed databases that can be ordered: PostgreSQL, MariaDB, CouchDB, SQLite, FAISS, Chroma, Qdrant, " +
+      "Weaviate, Milvus. For each engine its add-ons and prices, what each price buys per region (vCPU, RAM, disk) " +
+      "and whether it can be ordered there now. No key needed.",
+    inputSchema: obj({ engine: str("Only this engine, by its id, e.g. pgsql, mariadb, qdrant") }),
+    annotations: READ,
+    run: async (api, a) => {
+      const cat = (await api.get("/api/data/catalogue")) as { engines?: { id: string }[] };
+      return a.engine && cat.engines ? { ...cat, engines: cat.engines.filter((e) => e.id === a.engine) } : cat;
+    },
+  },
+  {
+    name: "data_list",
+    description: "Your managed databases with engine, status, size, region, address and allow list, never the login. " +
+      "Use it to watch a new database until its status is running. Scope databases:read.",
+    inputSchema: obj({}),
+    annotations: READ,
+    run: (api) => api.get("/api/data/services"),
+  },
+  {
+    // Not marked read-only: the first read after setup hands over the login and removes it from the API.
+    name: "data_get",
+    description: "One managed database in detail with recent events. The first call after setup also answers its login " +
+      "in credentials, once: it can't be read again, so give it to the user right away. Scope databases:read.",
+    inputSchema: obj({ id: DATA_ID }, ["id"]),
+    run: (api, a) => api.get(`/api/data/services/${id(a.id)}`),
+  },
+  {
+    name: "data_create",
+    description: "Order a managed database. The first 30 days, add-ons included, are charged from the balance; setup " +
+      "takes a few minutes (watch it with data_list). Nothing can connect until an IP is on its allow list. " +
+      "Scope databases:write.",
+    inputSchema: obj({
+      engine: str("Engine id from data_catalogue, e.g. pgsql"),
+      price_cents: DATA_PRICE,
+      region: str("Region id from data_catalogue: eu (Germany), us or in (India)"),
+      name: str("Database name: 2-31 characters, lower-case letters, digits and single dashes, starting with a letter"),
+      addons: strs("Add-on ids for this engine from data_catalogue, e.g. pgvector, postgis, spatialite"),
+      allow: strs("IP addresses or CIDRs allowed to connect, e.g. 203.0.113.7/32"),
+    }, ["engine", "price_cents", "region", "name"]),
+    run: (api, a) => api.post("/api/data/services", pick(a, ["engine", "price_cents", "region", "name", "addons", "allow"])),
+  },
+  {
+    name: "data_set_allow",
+    description: "Replace a managed database's allow list (who may connect). An empty list closes it. " +
+      "Scope databases:write.",
+    inputSchema: obj({ id: DATA_ID, allow: strs("IP addresses or CIDRs") }, ["id", "allow"]),
+    run: (api, a) => api.put(`/api/data/services/${id(a.id)}/allow`, { allow: a.allow }),
+  },
+  {
+    name: "data_resize",
+    description: "Move a running database to another price for its engine and region. Bigger: the difference for the " +
+      "days already paid is charged from the balance now. Smaller: the unused difference goes back, and only when the " +
+      "data fits in 80% of the new disk. Some steps can't be done in place and answer 409; pick a smaller step. " +
+      "Scope databases:write.",
+    inputSchema: obj({ id: DATA_ID, price_cents: DATA_PRICE }, ["id", "price_cents"]),
+    run: (api, a) => api.post(`/api/data/services/${id(a.id)}/resize`, { price_cents: a.price_cents }),
+  },
+  {
+    name: "data_delete",
+    description: "Delete a managed database and its data; unused days go back to the balance. Cannot be undone. " +
+      "Scope databases:write.",
+    inputSchema: obj({ id: DATA_ID, confirm: str("The database's name, typed to confirm") }, ["id", "confirm"]),
+    annotations: DESTROY,
+    run: (api, a) => api.request("DELETE", `/api/data/services/${id(a.id)}`, { body: { confirm: a.confirm } }),
   },
   {
     name: "dns_list_zones",
