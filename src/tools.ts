@@ -227,6 +227,34 @@ export const TOOLS: Tool[] = [
     run: (api, a) => api.request("DELETE", `/api/data/services/${id(a.id)}`, { body: { confirm: a.confirm } }),
   },
   {
+    name: "domains_list",
+    description: "A server's own domains: each one's status and the two records to set. A server with its own address " +
+      "(own_address true) needs only an A record at your DNS. Scope dns:read.",
+    inputSchema: obj({ server_id: SERVER_ID }, ["server_id"]),
+    annotations: READ,
+    run: (api, a) => api.get(`/api/servers/${id(a.server_id)}/domains`),
+  },
+  {
+    name: "domains_add",
+    description: "Add your own domain to a small server. Set the A and TXT records in the answer; we check them, turn on " +
+      "HTTPS and route the domain to the server. Scope dns:write.",
+    inputSchema: obj({ server_id: SERVER_ID, domain: str("Domain, e.g. shop.example.com") }, ["server_id", "domain"]),
+    run: (api, a) => api.post(`/api/servers/${id(a.server_id)}/domains`, { domain: a.domain }),
+  },
+  {
+    name: "domains_check",
+    description: "Check a domain's records again now, or restart one that stopped trying. Scope dns:write.",
+    inputSchema: obj({ server_id: SERVER_ID, domain_id: int("Domain id from domains_list") }, ["server_id", "domain_id"]),
+    run: (api, a) => api.post(`/api/servers/${id(a.server_id)}/domains/${id(a.domain_id)}/check`, {}),
+  },
+  {
+    name: "domains_remove",
+    description: "Take a domain off a server. Scope dns:write.",
+    inputSchema: obj({ server_id: SERVER_ID, domain_id: int("Domain id from domains_list") }, ["server_id", "domain_id"]),
+    annotations: DESTROY,
+    run: (api, a) => api.del(`/api/servers/${id(a.server_id)}/domains/${id(a.domain_id)}`),
+  },
+  {
     name: "dns_list_zones",
     description: "Your DNS zones on the free tport.cloud nameservers, the nameservers to set at your registrar and " +
       "the record types offered. Scope dns:read.",

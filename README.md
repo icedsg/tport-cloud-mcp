@@ -45,6 +45,8 @@ Claude Code: `claude mcp add tport-cloud -e TPORT_API_KEY=tpct_... -- npx -y tpo
 | `data_create`, `data_set_allow`, `data_resize`, `data_delete` | Order, allow list, resize, delete | `databases:write` |
 | `databases_list`, `databases_get` | Primary + standby PostgreSQL clusters | `databases:read` |
 | `databases_create`, `databases_set_allow`, `databases_delete` | Order, allow list, delete | `databases:write` |
+| `domains_list` | A server's own domains and the records to set | `dns:read` |
+| `domains_add`, `domains_check`, `domains_remove` | Your own domain on a small server | `dns:write` |
 | `dns_list_zones`, `dns_get_zone` | Zones and records on the free nameservers | `dns:read` |
 | `dns_add_zone`, `dns_delete_zone`, `dns_add_record`, `dns_delete_record` | Change zones and records | `dns:write` |
 | `get_billing` | Balance and ledger | `billing:read` |
