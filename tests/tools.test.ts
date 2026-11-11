@@ -65,7 +65,7 @@ describe("tool list", () => {
     const names = tools.map((t) => t.name);
     for (const n of ["list_plans", "list_servers", "get_server", "create_server", "resize_server", "power",
       "delete_server", "dns_list_zones", "dns_add_record", "databases_list", "databases_create", "data_catalogue",
-      "data_list", "data_get", "data_create", "data_set_allow", "data_resize", "data_delete"]) {
+      "data_list", "data_get", "data_create", "data_set_allow", "data_connections", "data_resize", "data_delete"]) {
       expect(names).toContain(n);
     }
     expect(new Set(names).size).toBe(TOOLS.length);
@@ -107,20 +107,23 @@ describe("calls", () => {
     await call("data_get", { id: "db-4" });
     await call("data_create", { engine: "pgsql", price_cents: 800, region: "eu", name: "vec1", addons: ["pgvector"] });
     await call("data_set_allow", { id: "db-4", allow: [] });
+    await call("data_connections", { id: "db-4" });
     await call("data_resize", { id: "db-4", price_cents: 1200 });
     await call("data_delete", { id: "db-4", confirm: "vec1" });
     expect(seen.map((s) => `${s.method} ${s.path}`)).toEqual([
       "GET /api/data/services", "GET /api/data/services/db-4", "POST /api/data/services",
-      "PUT /api/data/services/db-4/allow", "POST /api/data/services/db-4/resize", "DELETE /api/data/services/db-4"]);
+      "PUT /api/data/services/db-4/allow", "GET /api/data/services/db-4/connections",
+      "POST /api/data/services/db-4/resize", "DELETE /api/data/services/db-4"]);
     expect(seen.map((s) => s.body)).toEqual([
       undefined, undefined, { engine: "pgsql", price_cents: 800, region: "eu", name: "vec1", addons: ["pgvector"] },
-      { allow: [] }, { price_cents: 1200 }, { confirm: "vec1" }]);
+      { allow: [] }, undefined, { price_cents: 1200 }, { confirm: "vec1" }]);
   });
 
   it("the tool that hands over the login once isn't marked read-only", async () => {
     const { tools } = await client.listTools();
     expect(tools.find((t) => t.name === "data_get")?.annotations?.readOnlyHint).toBeFalsy();
     expect(tools.find((t) => t.name === "data_list")?.annotations?.readOnlyHint).toBe(true);
+    expect(tools.find((t) => t.name === "data_connections")?.annotations?.readOnlyHint).toBe(true);
   });
 
   it("resize, power and delete hit the item routes", async () => {

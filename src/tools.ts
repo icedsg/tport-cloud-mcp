@@ -141,7 +141,7 @@ export const TOOLS: Tool[] = [
       region: REGION,
       name: str("Cluster name: lower-case letters, digits and dashes"),
       version: str("PostgreSQL major version (default: the newest offered)"),
-      allow: strs("IP addresses or CIDRs allowed to connect, e.g. 203.0.113.7/32"),
+      allow: strs("IP addresses or CIDRs allowed to connect, e.g. 203.0.113.7/32; leave out for anywhere"),
     }, ["plan", "region", "name"]),
     run: (api, a) => api.post("/api/orders", { kind: "pg", ...pick(a, ["plan", "region", "name", "version", "allow"]) }),
   },
@@ -190,24 +190,33 @@ export const TOOLS: Tool[] = [
   {
     name: "data_create",
     description: "Order a managed database. The first 30 days, add-ons included, are charged from the balance; setup " +
-      "takes a few minutes (watch it with data_list). Nothing can connect until an IP is on its allow list. " +
-      "Scope databases:write.",
+      "takes a few minutes (watch it with data_list). Without allow it is open to any IPv4 address (0.0.0.0/0), " +
+      "behind its password and TLS; allow [] orders it closed. Scope databases:write.",
     inputSchema: obj({
       engine: str("Engine id from data_catalogue, e.g. pgsql"),
       price_cents: DATA_PRICE,
       region: str("Region id from data_catalogue: eu (Germany), us or in (India)"),
       name: str("Database name: 2-31 characters, lower-case letters, digits and single dashes, starting with a letter"),
       addons: strs("Add-on ids for this engine from data_catalogue, e.g. pgvector, postgis, spatialite"),
-      allow: strs("IP addresses or CIDRs allowed to connect, e.g. 203.0.113.7/32"),
+      allow: strs("IP addresses or CIDRs allowed to connect, e.g. 203.0.113.7/32; leave out for anywhere"),
     }, ["engine", "price_cents", "region", "name"]),
     run: (api, a) => api.post("/api/data/services", pick(a, ["engine", "price_cents", "region", "name", "addons", "allow"])),
   },
   {
     name: "data_set_allow",
-    description: "Replace a managed database's allow list (who may connect). An empty list closes it. " +
-      "Scope databases:write.",
+    description: "Replace a managed database's allow list (who may connect). [\"0.0.0.0/0\"] opens it to anywhere, " +
+      "an empty list closes it. Scope databases:write.",
     inputSchema: obj({ id: DATA_ID, allow: strs("IP addresses or CIDRs") }, ["id", "allow"]),
     run: (api, a) => api.put(`/api/data/services/${id(a.id)}/allow`, { allow: a.allow }),
+  },
+  {
+    name: "data_connections",
+    description: "Who reached a managed database: each IP with first and last seen, connections let in and refused " +
+      "tries (connections 0 = only refused, often a scan), newest first, updated every few minutes. Use it to build " +
+      "an allow list from the addresses that really connect. Scope databases:read.",
+    inputSchema: obj({ id: DATA_ID }, ["id"]),
+    annotations: READ,
+    run: (api, a) => api.get(`/api/data/services/${id(a.id)}/connections`),
   },
   {
     name: "data_resize",

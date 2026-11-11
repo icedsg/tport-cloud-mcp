@@ -42,6 +42,7 @@ Claude Code: `claude mcp add tport-cloud -e TPORT_API_KEY=tpct_... -- npx -y tpo
 | `delete_server` | Delete (typed name to confirm; unused days credited) | `servers:delete` |
 | `data_catalogue` | Database engines, add-ons, prices, sizes per region, availability | none |
 | `data_list`, `data_get` | Your managed databases, one in detail (the login, once) | `databases:read` |
+| `data_connections` | Who reached a database: IPs, first/last seen, connections, refused tries | `databases:read` |
 | `data_create`, `data_set_allow`, `data_resize`, `data_delete` | Order, allow list, resize, delete | `databases:write` |
 | `databases_list`, `databases_get` | Primary + standby PostgreSQL clusters | `databases:read` |
 | `databases_create`, `databases_set_allow`, `databases_delete` | Order, allow list, delete | `databases:write` |
