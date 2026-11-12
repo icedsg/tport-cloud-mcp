@@ -34,7 +34,7 @@ Claude Code: `claude mcp add tport-cloud -e TPORT_API_KEY=tpct_... -- npx -y tpo
 
 | Tool | Does | Scope |
 | --- | --- | --- |
-| `list_plans` | Plans, prices, regions, images, installs, availability | none |
+| `list_plans` | Plans, prices, regions, images, installs (about 50 apps, with the ones each plan takes), availability | none |
 | `list_servers`, `get_server`, `get_order` | Your servers and shared accounts, one in detail, an order's progress | `servers:read` |
 | `create_server` | Order a root server or shared account (charged from the balance) | `servers:create` |
 | `resize_server` | Move to another plan of the same kind | `servers:resize` |

@@ -36,7 +36,8 @@ export const TOOLS: Tool[] = [
   {
     name: "list_plans",
     description: "What can be ordered: plans with monthly price (cents), vCPU, RAM, disk; regions; images; installs " +
-      "(python, node, postgresql...); which plan is available in which region. Managed databases by engine are in " +
+      "(about 50 by category: runtimes, databases, web servers, monitoring, Git and CI, CMS, analytics, chat and more, " +
+      "with fits = which installs each root plan takes); which plan is available in which region. Managed databases by engine are in " +
       "data_catalogue. No key needed.",
     inputSchema: obj({ kind: str("Only plans of this kind: shared, root or pg") }),
     annotations: READ,
@@ -72,7 +73,9 @@ export const TOOLS: Tool[] = [
       region: REGION,
       name: str("Server name: lower-case letters, digits and dashes"),
       ssh_keys: strs("Public SSH keys to install"),
-      installs: strs("Software to set up, from list_plans installs, optionally with a version: python, node:22, postgresql:18"),
+      installs: strs("Software to set up, from list_plans installs, optionally with a version: python, node:22, " +
+        "postgresql:18, gitea, grafana. Only installs in the plan's fits; the smallest plan takes none. Apps that run in " +
+        "Docker bring it with them (root only); one web server, and MySQL or MariaDB, not both"),
       access_mode: { type: "string", enum: ["root", "noroot"], description: "root (default) or noroot: your key on " +
         "your own user, no sudo, root login off. noroot needs user and confirm_no_root" },
       user: str("noroot only: the login user name"),
@@ -95,7 +98,8 @@ export const TOOLS: Tool[] = [
     name: "resize_server",
     description: "Move a server or shared account to another plan of the same kind. Bigger: the difference for the " +
       "days already paid is charged from the balance now. Smaller: the unused difference goes back, and only when " +
-      "the data fits in 80% of the new disk. Then the new price applies. Scope servers:resize.",
+      "the data fits in 80% of the new disk, and the server's installs must be in the new plan's fits. Then the new " +
+      "price applies. Scope servers:resize.",
     inputSchema: obj({ id: SERVER_ID, plan: str("The new plan id from list_plans") }, ["id", "plan"]),
     run: (api, a) => api.post(`/api/servers/${id(a.id)}/resize`, { plan: a.plan }),
   },
