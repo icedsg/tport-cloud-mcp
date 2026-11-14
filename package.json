@@ -1,6 +1,6 @@
 {
   "name": "tport-cloud-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "MCP server for tport.cloud: servers, managed databases and free DNS from Claude, Cursor or any MCP client, with a scoped API key",
   "type": "module",
   "main": "build/index.js",
