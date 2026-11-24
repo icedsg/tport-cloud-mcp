@@ -109,14 +109,18 @@ describe("calls", () => {
     await call("data_set_allow", { id: "db-4", allow: [] });
     await call("data_connections", { id: "db-4" });
     await call("data_resize", { id: "db-4", price_cents: 1200 });
+    await call("data_resize", { id: "db-4", price_cents: 1200, extra_ram_mb: 0 });
+    await call("data_create", { engine: "pgsql", price_cents: 800, region: "in", name: "big1", extra_ram_mb: 2048 });
     await call("data_delete", { id: "db-4", confirm: "vec1" });
     expect(seen.map((s) => `${s.method} ${s.path}`)).toEqual([
       "GET /api/data/services", "GET /api/data/services/db-4", "POST /api/data/services",
       "PUT /api/data/services/db-4/allow", "GET /api/data/services/db-4/connections",
-      "POST /api/data/services/db-4/resize", "DELETE /api/data/services/db-4"]);
+      "POST /api/data/services/db-4/resize", "POST /api/data/services/db-4/resize", "POST /api/data/services",
+      "DELETE /api/data/services/db-4"]);
     expect(seen.map((s) => s.body)).toEqual([
       undefined, undefined, { engine: "pgsql", price_cents: 800, region: "eu", name: "vec1", addons: ["pgvector"] },
-      { allow: [] }, undefined, { price_cents: 1200 }, { confirm: "vec1" }]);
+      { allow: [] }, undefined, { price_cents: 1200 }, { price_cents: 1200, extra_ram_mb: 0 },
+      { engine: "pgsql", price_cents: 800, region: "in", name: "big1", extra_ram_mb: 2048 }, { confirm: "vec1" }]);
   });
 
   it("the tool that hands over the login once isn't marked read-only", async () => {

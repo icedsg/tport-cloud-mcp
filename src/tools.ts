@@ -24,7 +24,9 @@ const DESTROY = { destructiveHint: true };
 const SERVER_ID = str("Server id from list_servers: srv-<n> (root server) or sh-<n> (shared account)");
 const CLUSTER_ID = str("Cluster id from databases_list: pg-<n>");
 const DATA_ID = str("Database id from data_list: db-<n>");
-const DATA_PRICE = int("Monthly price in cents from data_catalogue, without add-ons, e.g. 800");
+const DATA_PRICE = int("Monthly price in cents from data_catalogue, without add-ons or extra memory, e.g. 800");
+const EXTRA_RAM = int("Extra memory in MB on top of the price's own: 0 or one of that price's extra_ram_mb steps for the " +
+  "region in data_catalogue, e.g. 2048; each GB adds extra_ram.gb_cents for the region to the monthly price");
 const REGION = str("Region id from list_plans, e.g. eu (Germany), us (US Central), uk, us-east, us-west, sg");
 
 // Only what was given goes in the body, so the API's own defaults apply to the rest.
@@ -167,7 +169,8 @@ export const TOOLS: Tool[] = [
     name: "data_catalogue",
     description: "Managed databases that can be ordered: PostgreSQL, MariaDB, CouchDB, SQLite, FAISS, Chroma, Qdrant, " +
       "Weaviate, Milvus. For each engine its add-ons and prices, what each price buys per region (vCPU, RAM, disk) " +
-      "and whether it can be ordered there now. No key needed.",
+      "and whether it can be ordered there now; extra memory steps per price and region (extra_ram_mb) and the " +
+      "monthly price per extra GB by region (extra_ram.gb_cents). No key needed.",
     inputSchema: obj({ engine: str("Only this engine, by its id, e.g. pgsql, mariadb, qdrant") }),
     annotations: READ,
     run: async (api, a) => {
@@ -193,7 +196,7 @@ export const TOOLS: Tool[] = [
   },
   {
     name: "data_create",
-    description: "Order a managed database. The first 30 days, add-ons included, are charged from the balance; setup " +
+    description: "Order a managed database. The first 30 days, add-ons and extra memory included, are charged from the balance; setup " +
       "takes a few minutes (watch it with data_list). Without allow it is open to any IPv4 address (0.0.0.0/0), " +
       "behind its password and TLS; allow [] orders it closed. Scope databases:write.",
     inputSchema: obj({
@@ -203,8 +206,10 @@ export const TOOLS: Tool[] = [
       name: str("Database name: 2-31 characters, lower-case letters, digits and single dashes, starting with a letter"),
       addons: strs("Add-on ids for this engine from data_catalogue, e.g. pgvector, postgis, spatialite"),
       allow: strs("IP addresses or CIDRs allowed to connect, e.g. 203.0.113.7/32; leave out for anywhere"),
+      extra_ram_mb: EXTRA_RAM,
     }, ["engine", "price_cents", "region", "name"]),
-    run: (api, a) => api.post("/api/data/services", pick(a, ["engine", "price_cents", "region", "name", "addons", "allow"])),
+    run: (api, a) => api.post("/api/data/services",
+      pick(a, ["engine", "price_cents", "region", "name", "addons", "allow", "extra_ram_mb"])),
   },
   {
     name: "data_set_allow",
@@ -227,9 +232,10 @@ export const TOOLS: Tool[] = [
     description: "Move a running database to another price for its engine and region. Bigger: the difference for the " +
       "days already paid is charged from the balance now. Smaller: the unused difference goes back, and only when the " +
       "data fits in 80% of the new disk. Some steps can't be done in place and answer 409; pick a smaller step. " +
-      "Scope databases:write.",
-    inputSchema: obj({ id: DATA_ID, price_cents: DATA_PRICE }, ["id", "price_cents"]),
-    run: (api, a) => api.post(`/api/data/services/${id(a.id)}/resize`, { price_cents: a.price_cents }),
+      "extra_ram_mb changes the extra memory too (left out keeps it, 0 drops it); give the current price_cents " +
+      "to change only the memory. Scope databases:write.",
+    inputSchema: obj({ id: DATA_ID, price_cents: DATA_PRICE, extra_ram_mb: EXTRA_RAM }, ["id", "price_cents"]),
+    run: (api, a) => api.post(`/api/data/services/${id(a.id)}/resize`, pick(a, ["price_cents", "extra_ram_mb"])),
   },
   {
     name: "data_delete",
