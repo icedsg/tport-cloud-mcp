@@ -170,7 +170,8 @@ export const TOOLS: Tool[] = [
     description: "Managed databases that can be ordered: PostgreSQL, MariaDB, CouchDB, SQLite, FAISS, Chroma, Qdrant, " +
       "Weaviate, Milvus. For each engine its add-ons and prices, what each price buys per region (vCPU, RAM, disk) " +
       "and whether it can be ordered there now; extra memory steps per price and region (extra_ram_mb) and the " +
-      "monthly price per extra GB by region (extra_ram.gb_cents). No key needed.",
+      "monthly price per extra GB by region (extra_ram.gb_cents); built-in features at no extra price (features: SQLite " +
+      "has FTS5 full-text search with BM25 ranking and sqlite-vec vector search). No key needed.",
     inputSchema: obj({ engine: str("Only this engine, by its id, e.g. pgsql, mariadb, qdrant") }),
     annotations: READ,
     run: async (api, a) => {
